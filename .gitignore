@@ -1,4 +1,3 @@
-/data
-/Chinese-ELECTRA
-/venv
+/data/*
+/venv/*
 github_key
