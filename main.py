@@ -55,8 +55,8 @@ if __name__ == '__main__':
             ans = ans[~ans['JFULL'].str.contains('.pdf')] #先不納入pdf資料進來考慮
             ans = ans[ans['JFULL'].str.contains('不能安全駕駛')] #篩選不能安全駕駛資料
         convert_str = ''.join(condition_list)
-        sentence_embedding = (classifier(cc.convert(convert_str)))
-# sentence_embedding2 = (classifier(cc.convert('撞車囉')))
+        # convert_str = '第2項所示。八、據上論結，本件原告之訴為無理由，依行政訴訟法第98條第    1項前段、第237條之7、第237條之8第1項，判決如主文。中華民國110 年1 月11日                  行政訴訟庭法官  張百見以上正本係照原本作成。如對本判決上訴，非以其違背法令為理由，不得為之，且須於判決送達後20日內向本院提出上訴狀。中華民國110 年1 月11日                              書記官  李佩玲'
+        sentence_embedding = (classifier(cc.convert(convert_str[0:500])))
         sentence_embedding_sum = [sum(x) for x in zip(*sentence_embedding[0])]
         ans['cosine'] = ans['embedding'].map(lambda x: distance.cosine(sentence_embedding_sum, x))
         ans.sort_values(by=['cosine'], inplace=True)
