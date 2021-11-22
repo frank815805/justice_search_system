@@ -1,14 +1,20 @@
+# -*- coding: UTF-8 -*-
+
 from scipy.spatial import distance
+from transformers import pipeline
 from opencc import OpenCC
 import pandas as pd
-
+import pickle
 # 使用huggingface pipeline
 
 if __name__ == '__main__':
-    df = pd.read_csv('./data/city_data.csv')
+    classifier = pipeline('feature-extraction', model='hfl/chinese-legal-electra-large-discriminator',
+                          tokenizer='hfl/chinese-legal-electra-large-discriminator')
+    with open('./data/embedding.pickle', 'rb') as handle:
+        df = pickle.load(handle)
     cc = OpenCC('t2s')  # 繁體中文 -> 簡體中文 https://yanwei-liu.medium.com/python%E8%87%AA%E7%84%B6%E8%AA%9E%E8%A8%80%E8%99%95%E7%90%86-%E5%9B%9B-%E7%B9%81%E7%B0%A1%E8%BD%89%E6%8F%9B%E5%88%A9%E5%99%A8opencc-74021cbc6de3
-
-    total_city = df['CITY'].unique()
+    dist = []
+    total_city = df['CITY'].unique() #找出所有城市
     while True:
         condition_list = []
         search_mode = input('請選擇搜尋模式：0:精確, 1:模糊')
@@ -38,10 +44,20 @@ if __name__ == '__main__':
             ans = df[( (df['CITY'] == '高雄') | (df['CITY'] == '橋頭') ) ]
         else:
             ans = df[(df['CITY'] == location)]
-
-# sentence_embedding = (classifier(cc.convert('我不是辰峰')))
+        if '擦撞' in condition_list:
+            ans = ans[(ans['JTITLE'] == '過失傷害') | (ans['JTITLE'] == '損害賠償') | (ans['JTITLE'] == '交通裁決') | (ans['JTITLE'] == '交通裁決等')
+            | (ans['JTITLE'] == '公共危險') | (ans['JTITLE'] == '公共危險等') | (ans['JTITLE'] == '過失致死等') | (ans['JTITLE'] == '交通裁決')] #篩選出有可能為擦撞的類別
+            ans = ans[~ans['JFULL'].str.contains('.pdf')] #先不納入pdf資料進來考慮
+            ans = ans[ans['JFULL'].str.contains('車')] #篩選車資料
+        elif '酒駕' in condition_list:
+            ans = ans[(ans['JTITLE'] == '過失傷害') | (ans['JTITLE'] == '聲請定其應執行刑') | (ans['JTITLE'] == '交通裁決') | (ans['JTITLE'] == '交通裁決等')
+            | (ans['JTITLE'] == '公共危險') | (ans['JTITLE'] == '公共危險等') | (ans['JTITLE'] == '聲明異議') | (ans['JTITLE'] == '交通裁決') | (ans['JTITLE'] == '妨害公務')] #篩選出有可能為擦撞的類別
+            ans = ans[~ans['JFULL'].str.contains('.pdf')] #先不納入pdf資料進來考慮
+            ans = ans[ans['JFULL'].str.contains('不能安全駕駛')] #篩選不能安全駕駛資料
+        convert_str = ''.join(condition_list)
+        sentence_embedding = (classifier(cc.convert(convert_str)))
 # sentence_embedding2 = (classifier(cc.convert('撞車囉')))
-# Aflat = [sum(x) for x in zip(*sentence_embedding[0])]
-# Bflat = [sum(x) for x in zip(*sentence_embedding2[0])]
-# dist2 = distance.cosine(Aflat, Bflat)
+        sentence_embedding_sum = [sum(x) for x in zip(*sentence_embedding[0])]
+        ans['cosine'] = ans['embedding'].map(lambda x: distance.cosine(sentence_embedding_sum, x))
+        ans.sort_values(by=['cosine'], inplace=True)
 print(ans)
